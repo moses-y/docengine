@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import Row, select
+from sqlalchemy import Row, String, case, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -45,13 +45,16 @@ class DocumentRepo:
 
     async def role_for_user(self, document_id: UUID, user_id: UUID) -> str | None:
         """Returns 'owner' | 'editor' | 'viewer' | None. Never raises."""
-        from sqlalchemy import case
-
         stmt = (
             select(
                 case(
                     (Document.owner_id == user_id, "owner"),
-                    else_=DocumentShare.role,
+                    # Cast to text rather than letting the enum win the type
+                    # negotiation: "owner" is deliberately not a share_role
+                    # member (it is ownership, not a grant), and Postgres
+                    # refuses a CASE whose branches are share_role and
+                    # varchar. Casting the column keeps all three arms text.
+                    else_=cast(DocumentShare.role, String),
                 ).label("role")
             )
             .select_from(Document)
@@ -74,12 +77,11 @@ class DocumentRepo:
 
     async def list_for_user(self, user_id: UUID, scope: str) -> list[Row]:
         """Returns rows of (Document, owner_email, my_role) for the given scope."""
-        from sqlalchemy import case
-
         owner = aliased(User)
+        # Same text cast as role_for_user -- see the comment there.
         role_col = case(
             (Document.owner_id == user_id, "owner"),
-            else_=DocumentShare.role,
+            else_=cast(DocumentShare.role, String),
         ).label("my_role")
 
         stmt = (
