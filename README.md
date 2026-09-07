@@ -113,4 +113,6 @@ Every file is kept under ~450 lines by design — one table per model file, one 
 
 ## Deployment
 
+**Live: https://docengine.up.railway.app** (API at `https://docengine-api.up.railway.app`). Sign in with any seeded account below.
+
 Both `backend/Dockerfile` and `frontend/Dockerfile` build standalone and are ready to deploy as-is. See **[`docs/RAILWAY_SETUP.md`](docs/RAILWAY_SETUP.md)** for the full step-by-step (Postgres add-on, environment variables, build-time `VITE_API_BASE_URL`, volumes, CORS). The same two Dockerfiles work equally well on Fly.io or any other container platform — the backend image already runs migrations and seeding on boot (`alembic upgrade head && python -m app.seed`), and reads `$PORT` if the platform assigns one dynamically.

@@ -11,9 +11,16 @@
 - `docker-compose.yml` + `.env.example` — one-command local deployment
 - Automated tests: 22 backend (unit + integration), 7 frontend
 
+## Live deployment
+
+**https://docengine.up.railway.app** — sign in with any account in the table below.
+
+Deployed on Railway as two services (`api` from `backend/Dockerfile`, `web` from `frontend/Dockerfile`) plus managed Postgres and a 500 MB volume for uploads. The whole project is declared as code in `.railway/railway.ts`; see `docs/RAILWAY_SETUP.md` for the full walkthrough. The API is at `https://docengine-api.up.railway.app` and its health endpoint is public: `GET /api/health`.
+
+Migrations and seeding run automatically on every container start, so the accounts below exist on first boot with no manual step.
+
 ## Not yet included (fill in before submitting)
 
-- [ ] **Live product URL** — deploy `docker-compose.yml`'s two services to Railway or Fly.io with a managed Postgres add-on (see "Deployment" in `README.md`), then paste the URL here.
 - [ ] **Walkthrough video URL** — record the 3–5 minute walkthrough per the assignment brief (main flow, what works end-to-end, what was deprioritized, key decisions, AI workflow) and paste an unlisted Loom/YouTube link here.
 - [ ] **Google Drive folder link** — if submitting via Drive rather than a repo link, upload this folder there and paste the link here.
 
