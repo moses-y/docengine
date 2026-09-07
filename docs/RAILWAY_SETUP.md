@@ -16,6 +16,7 @@ The whole project is declared as code in **[`.railway/railway.ts`](../.railway/r
 The browser talks to `web` for the app shell and **directly to `api`'s public domain** for API calls, so CORS matters in this topology (unlike local compose, where nginx proxies `/api` and same-origin applies). Two details make that work:
 
 - `VITE_API_BASE_URL` is a **build arg**, not a runtime variable. Vite inlines `VITE_*` into the static bundle at build time, so changing it requires rebuilding `web`, not just editing a variable.
+- nginx must listen on **IPv6** as well as IPv4. Railway's edge reaches containers over IPv6, so `listen 80` alone leaves a healthy, ACTIVE-domain deployment answering every request with `Application not found`. The nginx image normally adds this itself via `10-listen-on-ipv6-by-default.sh`, but that script patches `default.conf` only while it still matches the packaged checksum — replacing the file makes it skip silently.
 - `frontend/nginx.conf` generates its `/api/` proxy block at container start from `$API_UPSTREAM` (see `frontend/docker-entrypoint.d/40-api-proxy.sh`). Compose sets that variable; Railway leaves it unset, so the block is empty. This is not cosmetic — nginx resolves `proxy_pass` hostnames at config *load* and refuses to start when the name does not exist, so a hardcoded `proxy_pass http://api:8000` makes the image unbootable anywhere outside the compose network.
 
 ## 1. Push the repo to GitHub and authorize Railway
@@ -48,7 +49,18 @@ railway config plan     # preview; changes nothing
 railway config apply    # add --yes to skip the confirmation
 ```
 
-`plan` prints an add/change/destroy summary; `plan --out plan.json` gives the full change set including every resolved variable, which is worth reading once before the first apply.
+`plan` prints an add/change/destroy summary; `plan --out plan.json` gives the full change set including every resolved variable, which is worth reading once before the first apply. Read the `volumeAttachments` block of the api service while you are in there — **`volumeMounts` must be keyed by mount path**, with the volume as the value:
+
+```ts
+volumeMounts: { "/data/storage": storage }   // correct
+volumeMounts: { "api-storage": { mountPath: "/data/storage" } }   // silently does nothing
+```
+
+The second form type-checks, applies without complaint, and attaches nothing: the volume is created detached at a default `/tmp` with a null `serviceId`, so uploads go to the container filesystem and disappear on the next redeploy. The tell is `volumeAttachments: {}` in the plan JSON, and `detached` in `railway status`. Confirm it landed:
+
+```bash
+railway api 'query { project(id: "<project-id>") { volumes { edges { node { name volumeInstances { edges { node { mountPath serviceId state } } } } } } } }'
+```
 
 Note that **apply is atomic** — one bad value fails the entire change set, and the diagnostic is only visible with `--json`. The volume size is the easy one to trip over: Railway's current plan caps volumes at 500 MB, and asking for more fails all ten changes with `Max size of 500 MB on current plan`.
 
@@ -62,7 +74,14 @@ railway domain list --service api
 
 Order matters. `VITE_API_BASE_URL` is `https://${{api.RAILWAY_PUBLIC_DOMAIN}}/api`, and build args are resolved when the image is built — so if `api` has no public domain yet, `web` bakes a broken API URL into its bundle and needs a rebuild to recover. `CORS_ORIGINS` is the mirror image (`https://${{web.RAILWAY_PUBLIC_DOMAIN}}`) but resolves at deploy time, so it is not order-sensitive.
 
-Both use Railway's `${{service.VAR}}` reference syntax rather than literal hostnames, so nothing needs editing when a domain changes.
+Both use Railway's `${{service.VAR}}` reference syntax rather than literal hostnames, so nothing needs editing when a domain changes. `CORS_ORIGINS` does need the api **redeployed** to pick up a new value, though — the reference resolves when the container starts, not continuously.
+
+A domain generated *before* the service has ever deployed can end up registered but unroutable: `railway domain status` reports `ACTIVE`, the container logs show nginx serving happily, and the edge still returns `Application not found` with an `x-railway-fallback: true` header. Updating the target port does not repair it. Delete and regenerate the domain, which fixes it at the cost of a new host label:
+
+```bash
+railway domain delete <domain-id> --service web
+railway domain --service web --port 80
+```
 
 ## 5. Set the secret
 
@@ -104,6 +123,9 @@ If login fails with a network error it is almost always one of:
 - `CORS_ORIGINS` not matching the frontend's exact origin (scheme included, no trailing slash)
 - `VITE_API_BASE_URL` baked in wrong — remember it is build-time, so fix the variable *and* redeploy `web`
 - `web` deployed before `api` had a domain (the same problem, from section 4)
+- `CORS_ORIGINS` resolved to a stale domain because the api has not been redeployed since the frontend's domain changed
+
+`Application not found` (rather than a CORS or connection error) is an edge-routing problem, not an application one — check for `x-railway-fallback: true` in the response headers and see the domain note in section 4.
 
 ## 8. Ongoing deploys
 

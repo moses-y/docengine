@@ -21,7 +21,10 @@ export default defineRailway(() => {
 
   const api = service("api", {
     source: github(REPO, { rootDirectory: "backend", branch: BRANCH }),
-    build: { builder: "DOCKERFILE" },
+    // No explicit `build.builder`: Railway auto-detects the Dockerfile in the
+    // root directory and stores the builder as null, so declaring DOCKERFILE
+    // here never sticks -- every apply reports success and the next plan
+    // shows the same diff again.
     healthcheck: "/api/health",
     env: {
       // Built by hand rather than referencing Postgres.DATABASE_URL because
@@ -40,14 +43,18 @@ export default defineRailway(() => {
       // generated domain without hardcoding it here.
       CORS_ORIGINS: "https://${{web.RAILWAY_PUBLIC_DOMAIN}}",
     },
+    // Keyed by mount path, with the volume node as the value. Keying by
+    // volume name instead is accepted by the type but silently produces no
+    // attachment: the volume is created detached at a default /tmp with a
+    // null serviceId, and uploads land on the container filesystem where a
+    // redeploy discards them.
     volumeMounts: {
-      "api-storage": { mountPath: "/data/storage" },
+      "/data/storage": storage,
     },
   });
 
   const web = service("web", {
     source: github(REPO, { rootDirectory: "frontend", branch: BRANCH }),
-    build: { builder: "DOCKERFILE" },
     env: {
       // Vite bakes this into the bundle, so it is consumed at *build* time as
       // a Docker build arg -- the api service must already have a public
