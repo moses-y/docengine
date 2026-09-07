@@ -17,7 +17,7 @@ export default defineRailway(() => {
   // Uploaded and imported files live here; without a volume they vanish on
   // every redeploy. 500 MB is the cap on Railway's current plan for this
   // workspace -- ample next to MAX_UPLOAD_BYTES of 5 MB per file.
-  const storage = volume("api-storage", { sizeMB: 500 });
+  const storage = volume("api-storage", { sizeMB: 500, region: "iad" });
 
   const api = service("api", {
     source: github(REPO, { rootDirectory: "backend", branch: BRANCH }),

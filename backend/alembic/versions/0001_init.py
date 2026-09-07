@@ -19,7 +19,12 @@ depends_on = None
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
-    share_role = postgresql.ENUM("viewer", "editor", name="share_role")
+    # create_type=False keeps SQLAlchemy from emitting a second CREATE TYPE
+    # when this object is used as a column type in create_table below -- the
+    # explicit create() call here is what owns creating it. Without the flag
+    # the migration dies on a fresh database with
+    # DuplicateObjectError: type "share_role" already exists.
+    share_role = postgresql.ENUM("viewer", "editor", name="share_role", create_type=False)
     share_role.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
