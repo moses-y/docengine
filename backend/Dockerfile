@@ -18,4 +18,9 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Migrate + seed + serve, all in one CMD, so the image behaves identically
+# under `docker compose` and under a platform like Railway that runs the
+# image directly with no compose-level command override. `${PORT:-8000}`
+# lets a host that assigns its own port (Railway sets $PORT) still work
+# without a build-time change.
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

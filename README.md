@@ -113,4 +113,4 @@ Every file is kept under ~450 lines by design — one table per model file, one 
 
 ## Deployment
 
-Both containers (`api`, `web`) build straight from `docker-compose.yml` and are deployable as-is to Railway or Fly.io with a managed Postgres add-on; point `DATABASE_URL` at the managed instance and set `JWT_SECRET` to a real random value. The `web` container serves the built frontend via nginx and proxies `/api/*` to the API container (see `frontend/nginx.conf`), so no CORS configuration is needed in production either.
+Both `backend/Dockerfile` and `frontend/Dockerfile` build standalone and are ready to deploy as-is. See **[`docs/RAILWAY_SETUP.md`](docs/RAILWAY_SETUP.md)** for the full step-by-step (Postgres add-on, environment variables, build-time `VITE_API_BASE_URL`, volumes, CORS). The same two Dockerfiles work equally well on Fly.io or any other container platform — the backend image already runs migrations and seeding on boot (`alembic upgrade head && python -m app.seed`), and reads `$PORT` if the platform assigns one dynamically.
