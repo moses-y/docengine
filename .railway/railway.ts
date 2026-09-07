@@ -15,8 +15,9 @@ export default defineRailway(() => {
   const db = postgres("Postgres");
 
   // Uploaded and imported files live here; without a volume they vanish on
-  // every redeploy.
-  const storage = volume("api-storage", { sizeMB: 1024 });
+  // every redeploy. 500 MB is the cap on Railway's current plan for this
+  // workspace -- ample next to MAX_UPLOAD_BYTES of 5 MB per file.
+  const storage = volume("api-storage", { sizeMB: 500 });
 
   const api = service("api", {
     source: github(REPO, { rootDirectory: "backend", branch: BRANCH }),
