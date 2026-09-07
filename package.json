@@ -1,0 +1,27 @@
+{
+  "name": "docengine-railway-config",
+  "version": "1.0.0",
+  "description": "Railway infrastructure-as-code for DocEngine (see .railway/railway.ts). Not an application package.",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moses-y/docengine.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/moses-y/docengine/issues"
+  },
+  "homepage": "https://github.com/moses-y/docengine#readme",
+  "devDependencies": {
+    "railway": "^3.11.0"
+  },
+  "private": true
+}

@@ -38,9 +38,14 @@ services:
   web:
     build:
       context: ./frontend
+      args:
+        # Build-time, not runtime: Vite inlines it into the bundle. "/api" is
+        # relative, so the browser hits nginx, which proxies to the api
+        # service below -- no CORS involved locally.
+        VITE_API_BASE_URL: /api
     restart: unless-stopped
     environment:
-      VITE_API_BASE_URL: /api
+      API_UPSTREAM: http://api:8000
     ports:
       - "5173:80"
     depends_on:
