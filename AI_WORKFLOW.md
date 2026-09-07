@@ -30,3 +30,21 @@ Asked it to build the PRD into a real repo: FastAPI + SQLAlchemy + Postgres back
 ## What's still owed
 
 The frontend's own `node_modules` was verified in an isolated scratch copy (native Linux filesystem) rather than in the mounted project folder, because installing directly into the mounted `D:\DocEngine\frontend` folder was extremely slow over that mount and left a partially-corrupted `node_modules` behind. That folder is `.gitignore`d and irrelevant to the deliverable, but should be deleted (or just overwritten by `npm install`) before local development.
+
+## 2026-09-07 — Deployment, and what only deploying found
+
+Deployed to Railway in the same agentic session: two services built from their own Dockerfiles plus managed Postgres, declared as infrastructure-as-code in `.railway/railway.ts` (see `docs/RAILWAY_SETUP.md`).
+
+This is the entry I'd point a reviewer at, because deploying found five real bugs that a green test suite had not — every one of them in application code, not in the deployment:
+
+1. **The initial migration could not run on an empty database.** It created the `share_role` enum explicitly, then passed the same `ENUM` object to `create_table` as a column type, so SQLAlchemy emitted `CREATE TYPE` twice: `DuplicateObjectError` on any fresh Postgres. Deterministic, and it would have hit a reviewer running `docker compose up` just as hard.
+2. **Every authorization check was issuing invalid SQL.** `role_for_user` built a `CASE` whose branches were the `share_role` enum and the varchar `'owner'`; Postgres refuses to match those types. `'owner'` is deliberately not an enum member — ownership is not a grant — so the fix casts the column to text.
+3. **Login rejected its own seeded accounts.** `EmailStr` plus a newer `email-validator` (pinned only `>=2.2`) treats `.test` as a reserved TLD, so every documented `@ajaia.test` credential got a 422 before the password was checked. Login is a credential lookup, so format validation there could only ever make existing accounts unreachable; registration keeps `EmailStr`.
+4. **The frontend image could not boot outside the compose network.** `nginx.conf` hardcoded `proxy_pass http://api:8000`, and nginx resolves proxy_pass hostnames at config load — it refuses to start when the name does not exist. The `/api/` block is now generated at container start from `$API_UPSTREAM`.
+5. **Auth was cookie-only, which silently breaks across hostnames.** The client sent no `Authorization` header and relied on the `SameSite=Lax` cookie. That works locally, where nginx makes the API same-origin, but the deployed services sit on separate hosts under `up.railway.app` — a Public Suffix List entry, so the browser treats them as cross-site and withholds the cookie. Login appeared to succeed and every authenticated request then failed. The API already accepted `Bearer`, so the fix was to send the token the login response had always returned.
+
+Bugs 1 and 2 were both inside the reach of `tests/integration/`, which spins up real Postgres via testcontainers and runs the migration — they survived because Docker was not running on the machine, so that suite had never been executed. The lesson I'd actually draw: the tests were written and the unit tests were run, but "tests exist" and "tests ran on this machine" are different claims, and only the second one is worth anything. Bugs 3, 4 and 5 are of a kind no unit test would catch, because each depends on a property of the deployed environment — installed dependency versions, DNS resolvability, and cross-site cookie rules.
+
+Two platform-side traps are documented in `docs/RAILWAY_SETUP.md` rather than here, since they are Railway behavior rather than AI workflow: nginx needing an explicit IPv6 listener, and a generated domain that reports `ACTIVE` while never routing.
+
+Also worth recording as a correction: the `node_modules` corruption noted under "What's still owed" above recurred when reinstalling in the mounted folder, and broke `vitest` with a missing nested `tinyspy`. The frontend typecheck (`tsc --noEmit`) was run clean before deploying, and the Docker build installs into a fresh tree, so the deployed bundle is sound — but the frontend test suite was **not** re-run after the auth change. That is the one verification gap I would close first.
