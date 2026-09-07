@@ -10,6 +10,7 @@
 - `.pre-commit-config.yaml` — lint/format/test hooks
 - `docker-compose.yml` + `.env.example` — one-command local deployment
 - Automated tests: 22 backend (unit + integration), 7 frontend
+- `samples/` — files for trying the import flow (`.docx` with a table and image that are deliberately dropped and reported, plus `.md` and `.txt`)
 
 ## Live deployment
 

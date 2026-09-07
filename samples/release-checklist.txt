@@ -1,0 +1,17 @@
+Release checklist - DocEngine
+
+Before tagging:
+  1. Backend tests green (unit + integration against real Postgres)
+  2. Frontend typecheck and tests green
+  3. Migrations run clean against an EMPTY database, not just an existing one
+  4. Seed data present on first boot
+  5. Auth verified on the deployed hostnames, not only locally
+
+Known-good demo accounts:
+  alice@ajaia.test / demo1234   - owns two documents, shares one with Bob
+  bob@ajaia.test   / demo1234   - editor on Alice's shared document
+  carol@ajaia.test / demo1234   - no documents, for empty-state checks
+
+Notes:
+  Plain text imports as one paragraph per blank-line-separated block.
+  Indentation and alignment are not preserved - that is expected.
